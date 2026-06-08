@@ -7,6 +7,12 @@
 #' @export
 margin <- S7::new_class(
   "margin", parent = S7::new_S3_class(c("simpleUnit", "unit", "unit_v2")),
+  properties = list(
+    t = new_margin_prop("t", 1),
+    r = new_margin_prop("r", 2),
+    b = new_margin_prop("b", 3),
+    l = new_margin_prop("l", 4)
+  ),
   constructor = function(t = 0, r = 0, b = 0, l = 0, unit = "pt", ...) {
     warn_dots_empty()
     lens <- c(length(t), length(r), length(b), length(l))
@@ -27,6 +33,44 @@ margin <- S7::new_class(
     S7::new_object(u)
   }
 )
+
+# helper function to define dynamic properties for t, r, b, l
+new_margin_prop <- function(side, index) {
+  S7::new_property(
+    class = S7::new_S3_class(c("simpleUnit", "unit", "unit_v2")),
+    getter = function(self) self[index],
+    setter = function(self, value) {
+      # make sure value has length 1
+      len <- length(value)
+      if (len != 1) {
+        cli::cli_warn(c(
+          "{.arg {side}} should have length 1, not length {len}.",
+          i = "{.arg {side}} gets truncated to length 1."
+        ))
+        value <- value[1]
+      }
+
+      # record the old/original unit type
+      oldUnitType <- grid::unitType(self[index])
+
+      # abort if value is a unit object with the wrong unit type
+      if (grid::is.unit(value) && grid::unitType(value) != oldUnitType) {
+        newUnitType <- grid::unitType(value)
+        cli::cli_abort(c(
+          "Cannot change unit from {.val {oldUnitType}} to \\
+          {.val {newUnitType}} by setting {.arg {side}}.",
+          i = 'Consider assignment via numeric index, e.g. \\
+          {.code x[{index}] <- unit({as.numeric(value)}, "{newUnitType}")}, \\
+          but note that the resulting object will not have class {.cls margin}.'
+        ))
+      }
+
+      # update self
+      self[index] <- unit(value, oldUnitType)
+      self
+    }
+  )
+}
 
 #' @export
 #' @rdname is_tests
